@@ -4,8 +4,9 @@ go 1.20
 
 require (
 	github.com/libp2p/go-libp2p v0.29.0
-	github.com/libp2p/go-libp2p-core v0.20.1
 	github.com/multiformats/go-multiaddr v0.10.1
+	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
+	github.com/vishvananda/netlink v1.1.0
 )
 
 require (
@@ -77,6 +78,7 @@ require (
 	github.com/quic-go/webtransport-go v0.5.3 // indirect
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.20.0 // indirect
