@@ -1,5 +1,7 @@
 package main
 
+import "context"
+
 func main() {
 	h, err := genHost(port1)
 	if err != nil {
@@ -14,4 +16,6 @@ func main() {
 	defer ifce.Close()
 
 	h.SetStreamHandler(Protocol, streamHandler(ifce))
+
+	readPackets(context.Background(), h, ifce)
 }

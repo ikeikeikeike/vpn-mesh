@@ -1,15 +1,23 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
+	"net"
+
+	"github.com/pkg/errors"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+
+	"github.com/songgao/packets/ethernet"
 	"github.com/songgao/water"
 
 	"github.com/multiformats/go-multiaddr"
@@ -58,6 +66,68 @@ func streamHandler(ifce *water.Interface) func(stream network.Stream) {
 			stream.Reset()
 		}
 	}
+}
+
+const MTU = 1420
+
+func readPackets(ctx context.Context, h host.Host, ifce *water.Interface) {
+	activeStreams := make(map[string]network.Stream)
+
+	var packet = make([]byte, MTU)
+	for {
+		plen, err := ifce.Read(packet)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		dst := net.IPv4(packet[16], packet[17], packet[18], packet[19]).String()
+
+		stream, ok := activeStreams[dst]
+		if ok {
+			err = binary.Write(stream, binary.LittleEndian, uint16(plen))
+			if err == nil {
+				_, err = stream.Write(packet[:plen])
+				if err == nil {
+					continue
+				}
+			}
+			stream.Close()
+			delete(activeStreams, dst)
+		}
+
+		if peer, ok := peerTable[dst]; ok {
+			stream, err = h.NewStream(ctx, peer, Protocol)
+			if err != nil {
+				continue
+			}
+			err = binary.Write(stream, binary.LittleEndian, uint16(plen))
+			if err != nil {
+				stream.Close()
+				continue
+			}
+			_, err = stream.Write(packet[:plen])
+			if err != nil {
+				stream.Close()
+				continue
+			}
+
+			activeStreams[dst] = stream
+		}
+	}
+}
+
+func getFrame(ifce *water.Interface) (ethernet.Frame, error) {
+	var frame ethernet.Frame
+	frame.Resize(MTU)
+
+	n, err := ifce.Read([]byte(frame))
+	if err != nil {
+		return frame, errors.Wrap(err, "could not read from interface")
+	}
+
+	frame = frame[:n]
+	return frame, nil
 }
 
 const Protocol = "/dmsg/0.0.1"
