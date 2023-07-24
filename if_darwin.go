@@ -10,7 +10,7 @@ import (
 
 func createInterface(name string, dtype water.DeviceType) (*water.Interface, error) {
 	config := water.Config{
-		DeviceType: water.TUN,
+		DeviceType: dtype,
 	}
 	config.Name = name
 

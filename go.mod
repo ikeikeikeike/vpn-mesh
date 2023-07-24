@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/libp2p/go-libp2p v0.29.0
+	github.com/libp2p/go-libp2p-core v0.20.1
 	github.com/multiformats/go-multiaddr v0.10.1
 	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
 	github.com/vishvananda/netlink v1.1.0
