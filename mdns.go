@@ -38,13 +38,11 @@ func runMDNS(ctx context.Context, h host.Host, address string, peerChan chan pee
 
 	for {
 		peer := <-peerChan
-		fmt.Println("Found peer:", peer, ", connected from: ", h.ID())
 
 		if err := h.Connect(ctx, peer); err != nil {
 			fmt.Println("Connection failed:", err)
 			continue
 		}
-
 		stream, err := h.NewStream(ctx, peer.ID, DiscoverProtocol.ID())
 
 		if err != nil {
@@ -65,7 +63,5 @@ func runMDNS(ctx context.Context, h host.Host, address string, peerChan chan pee
 			fmt.Printf("Error flushing writer: %v\n", err)
 			continue
 		}
-
-		fmt.Println("Connected to:", peer)
 	}
 }

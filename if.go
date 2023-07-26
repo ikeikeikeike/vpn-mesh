@@ -23,24 +23,17 @@ func prepareInterface(name, address string, mtu int) error {
 	if err != nil {
 		return err
 	}
-
 	addr, err := netlink.ParseAddr(address)
 	if err != nil {
 		return err
 	}
-
-	err = netlink.LinkSetMTU(link, mtu)
-	if err != nil {
+	if err := netlink.LinkSetMTU(link, mtu); err != nil {
 		return err
 	}
-
-	err = netlink.AddrAdd(link, addr)
-	if err != nil {
+	if err := netlink.AddrAdd(link, addr); err != nil {
 		return err
 	}
-
-	err = netlink.LinkSetUp(link)
-	if err != nil {
+	if err := netlink.LinkSetUp(link); err != nil {
 		return err
 	}
 

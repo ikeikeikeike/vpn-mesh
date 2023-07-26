@@ -4,8 +4,11 @@
 package main
 
 import (
+	"fmt"
+	"net"
+	"os/exec"
+
 	"github.com/songgao/water"
-	"github.com/vishvananda/netlink"
 )
 
 func createInterface(name string, dtype water.DeviceType) (*water.Interface, error) {
@@ -18,30 +21,21 @@ func createInterface(name string, dtype water.DeviceType) (*water.Interface, err
 }
 
 func prepareInterface(name, address string, mtu int) error {
-	link, err := netlink.LinkByName(name)
+	ip, _, err := net.ParseCIDR(address)
 	if err != nil {
 		return err
 	}
-
-	addr, err := netlink.ParseAddr(address)
-	if err != nil {
+	if err := ifconfig(name, "mtu", fmt.Sprintf("%d", MTU)); err != nil {
 		return err
 	}
-
-	err = netlink.LinkSetMTU(link, mtu)
-	if err != nil {
-		return err
-	}
-
-	err = netlink.AddrAdd(link, addr)
-	if err != nil {
-		return err
-	}
-
-	err = netlink.LinkSetUp(link)
-	if err != nil {
+	if err := ifconfig(name, "inet", ip.String(), "10.1.1.1", "up"); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func ifconfig(args ...string) error {
+	cmd := exec.Command("ifconfig", args...)
+	return cmd.Run()
 }

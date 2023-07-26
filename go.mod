@@ -1,4 +1,4 @@
-module github.com/ikeikeikeike/mdns
+module github.com/ikeikeikeike/vpn-mesh
 
 go 1.20
 

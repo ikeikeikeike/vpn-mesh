@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 
 	"github.com/pkg/errors"
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -19,6 +19,10 @@ import (
 	"github.com/songgao/water"
 
 	"github.com/multiformats/go-multiaddr"
+)
+
+var (
+	peerTable = map[string]peer.ID{}
 )
 
 func newP2P(port int) (host.Host, error) {
@@ -50,39 +54,53 @@ func discoverHandler(stream network.Stream) {
 			return
 		}
 
-		packet := make([]byte, binary.BigEndian.Uint32(packetSize))
-		if _, err := stream.Read(packet); err != nil {
+		address := make([]byte, binary.BigEndian.Uint32(packetSize))
+		if _, err := stream.Read(address); err != nil {
 			fmt.Printf("Error reading message from stream: %v\n", err)
 			stream.Close()
 			return
 		}
+		ip, _, err := net.ParseCIDR(string(address))
+		if err != nil {
+			stream.Close()
+			return
+		}
 
-		fmt.Printf("Received message: %s\n", packet)
+		peerTable[ip.String()] = stream.Conn().RemotePeer()
+		fmt.Printf("An address is now joined to vpn-mesh: %s\n", address)
 	}
 }
 
 func meshHandler(i *water.Interface) func(stream network.Stream) {
 	return func(stream network.Stream) {
-		if len(peerTable) == 0 {
-			stream.Reset()
-			return
-		}
+		// TODO
+		// if _, ok := RevLookup[stream.Conn().RemotePeer().Pretty()]; !ok {
+		// 	stream.Reset()
+		// 	return
+		// }
 
-		if len(peerTable) > 0 {
-			found := false
-			for _, p := range peerTable {
-				if p.String() == stream.Conn().RemotePeer().String() {
-					found = true
-				}
-			}
-			if !found {
-				stream.Reset()
+		var packet = make([]byte, MTU)
+		var packetSize = make([]byte, 2)
+		for {
+			_, err := stream.Read(packetSize)
+			if err != nil {
+				stream.Close()
 				return
 			}
-		}
 
-		if _, err := io.Copy(i.ReadWriteCloser, stream); err != nil {
-			stream.Reset()
+			size := binary.LittleEndian.Uint16(packetSize)
+
+			var plen uint16 = 0
+			for plen < size {
+				tmp, err := stream.Read(packet[plen:size])
+				plen += uint16(tmp)
+				if err != nil {
+					stream.Close()
+					return
+				}
+			}
+
+			i.Write(packet[:size])
 		}
 	}
 }

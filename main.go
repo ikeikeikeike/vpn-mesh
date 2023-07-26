@@ -11,20 +11,18 @@ func main() {
 	if address == "" {
 		panic(address)
 	}
-
 	h, err := newP2P(port1)
 	if err != nil {
 		panic(err)
 	}
 	defer h.Close()
-
-	fmt.Printf("NodeID:%s\nNodeAddresses:%s\nVPNAddresse:%s\n", h.ID(), h.Addrs(), address)
-
 	i, err := createInterface(name1, type1)
 	if err != nil {
 		panic(err)
 	}
 	defer i.Close()
+
+	fmt.Printf("VPN Address: %s\n\n", address)
 
 	h.SetStreamHandler(MeshProtocol.ID(), meshHandler(i))
 	h.SetStreamHandler(DiscoverProtocol.ID(), discoverHandler)
