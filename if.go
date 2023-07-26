@@ -43,5 +43,6 @@ func prepareInterface(name, address string, mtu int) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

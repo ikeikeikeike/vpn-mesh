@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net"
 
 	"github.com/pkg/errors"
@@ -15,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/songgao/packets/ethernet"
 	"github.com/songgao/water"
@@ -23,7 +21,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-func genHost(port int) (host.Host, error) {
+func newP2P(port int) (host.Host, error) {
 	prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)
 	if err != nil {
 		return nil, err
@@ -42,7 +40,28 @@ func genHost(port int) (host.Host, error) {
 	)
 }
 
-func streamHandler(ifce *water.Interface) func(stream network.Stream) {
+func discoverHandler(stream network.Stream) {
+	packetSize := make([]byte, 4)
+
+	for {
+		if _, err := stream.Read(packetSize); err != nil {
+			fmt.Printf("Error reading length from stream: %v\n", err)
+			stream.Close()
+			return
+		}
+
+		packet := make([]byte, binary.BigEndian.Uint32(packetSize))
+		if _, err := stream.Read(packet); err != nil {
+			fmt.Printf("Error reading message from stream: %v\n", err)
+			stream.Close()
+			return
+		}
+
+		fmt.Printf("Received message: %s\n", packet)
+	}
+}
+
+func meshHandler(i *water.Interface) func(stream network.Stream) {
 	return func(stream network.Stream) {
 		if len(peerTable) == 0 {
 			stream.Reset()
@@ -62,26 +81,24 @@ func streamHandler(ifce *water.Interface) func(stream network.Stream) {
 			}
 		}
 
-		if _, err := io.Copy(ifce.ReadWriteCloser, stream); err != nil {
+		if _, err := io.Copy(i.ReadWriteCloser, stream); err != nil {
 			stream.Reset()
 		}
 	}
 }
 
-const MTU = 1420
-
-func readPackets(ctx context.Context, h host.Host, ifce *water.Interface) {
+func readPackets(ctx context.Context, h host.Host, i *water.Interface) {
 	activeStreams := make(map[string]network.Stream)
 
 	var packet = make([]byte, MTU)
 	for {
-		plen, err := ifce.Read(packet)
+		plen, err := i.Read(packet)
 		if err != nil {
-			log.Println(err)
+			fmt.Println(err)
 			continue
 		}
 
-		dst := net.IPv4(packet[16], packet[17], packet[18], packet[19]).String()
+		dst := net.IPv4(packet[16], packet[17], packet[18], packet[19]).String() // TODO: use ethernet.Frame
 
 		stream, ok := activeStreams[dst]
 		if ok {
@@ -97,7 +114,7 @@ func readPackets(ctx context.Context, h host.Host, ifce *water.Interface) {
 		}
 
 		if peer, ok := peerTable[dst]; ok {
-			stream, err = h.NewStream(ctx, peer, Protocol)
+			stream, err = h.NewStream(ctx, peer, MeshProtocol.ID())
 			if err != nil {
 				continue
 			}
@@ -117,46 +134,15 @@ func readPackets(ctx context.Context, h host.Host, ifce *water.Interface) {
 	}
 }
 
-func getFrame(ifce *water.Interface) (ethernet.Frame, error) {
+func getFrame(i *water.Interface) (ethernet.Frame, error) {
 	var frame ethernet.Frame
 	frame.Resize(MTU)
 
-	n, err := ifce.Read([]byte(frame))
+	n, err := i.Read([]byte(frame))
 	if err != nil {
 		return frame, errors.Wrap(err, "could not read from interface")
 	}
 
 	frame = frame[:n]
 	return frame, nil
-}
-
-const Protocol = "/dmsg/0.0.1"
-
-const (
-	port1 = 6868      // for dev
-	name1 = "utun5"   // for dev
-	type1 = water.TUN // for dev
-)
-
-var (
-	peerTable map[string]peer.ID
-)
-
-func run() {
-	h, err := genHost(port1)
-	if err != nil {
-		panic(err)
-	}
-	defer h.Close()
-
-	ifce, err := createInterface(name1, type1)
-	if err != nil {
-		panic(err)
-	}
-	defer ifce.Close()
-
-	h.SetStreamHandler(Protocol, streamHandler(ifce))
-
-	readPackets(context.Background(), h, ifce)
-
 }

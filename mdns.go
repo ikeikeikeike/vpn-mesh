@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/libp2p/go-libp2p/core/host"
@@ -31,27 +32,40 @@ func newMDNS(h host.Host, rendezvous string) (chan peer.AddrInfo, error) {
 	return n.PeerChan, nil
 }
 
-func runMDNS(ctx context.Context, h host.Host, peerChan chan peer.AddrInfo) {
-	for { // allows multiple peers to join
-		println("mdns", 0)
-		peer := <-peerChan // will block until we discover a peer
-		fmt.Println("Found peer:", peer, ", connecting")
+func runMDNS(ctx context.Context, h host.Host, address string, peerChan chan peer.AddrInfo) {
+	packetSize := make([]byte, 4)
+	binary.BigEndian.PutUint32(packetSize, uint32(len(address)))
+
+	for {
+		peer := <-peerChan
+		fmt.Println("Found peer:", peer, ", connected from: ", h.ID())
 
 		if err := h.Connect(ctx, peer); err != nil {
 			fmt.Println("Connection failed:", err)
 			continue
 		}
 
-		// open a stream, this stream will be handled by handleStream other end
-		stream, err := h.NewStream(ctx, peer.ID, Protocol)
+		stream, err := h.NewStream(ctx, peer.ID, DiscoverProtocol.ID())
 
 		if err != nil {
 			fmt.Println("Stream open failed", err)
-		} else {
-			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-			fmt.Println("Connected to:", peer, rw)
+			continue
 		}
-	}
+		writer := bufio.NewWriter(stream)
 
+		if _, err := writer.Write(packetSize); err != nil {
+			fmt.Printf("Error sending message length: %v\n", err)
+			continue
+		}
+		if _, err := writer.WriteString(address); err != nil {
+			fmt.Printf("Error sending message: %v\n", err)
+			continue
+		}
+		if err := writer.Flush(); err != nil {
+			fmt.Printf("Error flushing writer: %v\n", err)
+			continue
+		}
+
+		fmt.Println("Connected to:", peer)
+	}
 }

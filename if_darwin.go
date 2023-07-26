@@ -22,6 +22,7 @@ func prepareInterface(name, address string, mtu int) error {
 	if err != nil {
 		return err
 	}
+
 	addr, err := netlink.ParseAddr(address)
 	if err != nil {
 		return err

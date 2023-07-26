@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/libp2p/go-libp2p v0.29.0
+	github.com/libp2p/go-libp2p-core v0.20.1
 	github.com/multiformats/go-multiaddr v0.10.1
 	github.com/pkg/errors v0.9.1
 	github.com/songgao/packets v0.0.0-20160404182456-549a10cd4091
