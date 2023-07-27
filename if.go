@@ -8,7 +8,7 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func createInterface(name string, dtype water.DeviceType) (*water.Interface, error) {
+func newif(name string, dtype water.DeviceType) (*water.Interface, error) {
 	config := water.Config{
 		DeviceType: dtype,
 		// PlatformSpecificParams: water.PlatformSpecificParams{Persist: !c.NetLinkBootstrap},
@@ -18,7 +18,7 @@ func createInterface(name string, dtype water.DeviceType) (*water.Interface, err
 	return water.New(config)
 }
 
-func prepareInterface(name, address string, mtu int) error {
+func applyif(name, address string, mtu int) error {
 	link, err := netlink.LinkByName(name)
 	if err != nil {
 		return err

@@ -3,38 +3,45 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
+
+	"github.com/libp2p/go-libp2p-core/peer"
+)
+
+var (
+	peerTable = map[string]peer.ID{}
 )
 
 func main() {
-	address := os.Getenv("ADDRESS")
-	if address == "" {
-		panic(address)
+	args, err := parseArgs()
+	if err != nil {
+		panic(err)
 	}
+
 	h, err := newP2P(port1)
 	if err != nil {
 		panic(err)
 	}
 	defer h.Close()
-	i, err := createInterface(name1, type1)
+
+	i, err := newif(name1, type1)
 	if err != nil {
 		panic(err)
 	}
 	defer i.Close()
 
-	fmt.Printf("VPN Address: %s\n\n", address)
+	mdns, err := newMDNS(h, args.Token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("VPN Address: %s\n\n", args.Network)
+
+	ctx := context.Background()
+	go mdns.run(ctx, args.Network)
 
 	h.SetStreamHandler(MeshProtocol.ID(), meshHandler(i))
 	h.SetStreamHandler(DiscoverProtocol.ID(), discoverHandler)
 
-	peerChan, err := newMDNS(h, rendezvous)
-	if err != nil {
-		panic(err)
-	}
-	prepareInterface(name1, address, MTU)
+	applyif(name1, args.Network, MTU)
 
-	ctx := context.Background()
-	go runMDNS(ctx, h, address, peerChan)
-
-	readPackets(ctx, h, i)
+	meshBridge(ctx, h, i)
 }

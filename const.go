@@ -22,6 +22,4 @@ const (
 	port1 = 6868      // for dev
 	name1 = "utun5"   // for dev
 	type1 = water.TUN // for dev
-
-	rendezvous = "mememe"
 )
