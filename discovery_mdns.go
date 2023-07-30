@@ -14,53 +14,52 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 )
 
-type discoveryNotifee struct {
-	Peer chan peer.AddrInfo
-	host host.Host
+type discoveryMDNS struct {
+	PeerCh chan peer.AddrInfo
+	host   host.Host
 }
 
-func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	n.Peer <- pi
+func (n *discoveryMDNS) HandlePeerFound(pi peer.AddrInfo) {
+	n.PeerCh <- pi
 }
 
-func (n *discoveryNotifee) run(ctx context.Context, address string) {
+func (n *discoveryMDNS) run(ctx context.Context, address string) {
 	packetSize := make([]byte, 4)
 	binary.BigEndian.PutUint32(packetSize, uint32(len(address)))
 
 	for {
-		peer := <-n.Peer
-		if err := n.host.Connect(ctx, peer); err != nil {
-			fmt.Println("Connection failed:", err)
+		p := <-n.PeerCh
+		if err := n.host.Connect(ctx, p); err != nil {
+			fmt.Println("MDNS Connection failed:", p.ID, err)
 			continue
 		}
-		stream, err := n.host.NewStream(ctx, peer.ID, DiscoverProtocol.ID())
-
+		stream, err := n.host.NewStream(ctx, p.ID, MDNSProtocol.ID())
 		if err != nil {
-			fmt.Println("Stream open failed", err)
+			fmt.Println("MDNS Stream open failed", p.ID, err)
 			continue
 		}
 		writer := bufio.NewWriter(stream)
 
 		if _, err := writer.Write(packetSize); err != nil {
-			fmt.Printf("Error sending message length: %v\n", err)
+			fmt.Printf("MDNS Error sending message length: %v\n", err)
 			continue
 		}
 		if _, err := writer.WriteString(address); err != nil {
-			fmt.Printf("Error sending message: %v\n", err)
+			fmt.Printf("MDNS Error sending message: %v\n", err)
 			continue
 		}
 		if err := writer.Flush(); err != nil {
-			fmt.Printf("Error flushing writer: %v\n", err)
+			fmt.Printf("MDNS Error flushing writer: %v\n", err)
 			continue
 		}
 	}
 }
 
-func newMDNS(h host.Host, rendezvous string) (*discoveryNotifee, error) {
-	n := &discoveryNotifee{
-		host: h,
+func newMDNS(h host.Host, rendezvous string) (*discoveryMDNS, error) {
+	n := &discoveryMDNS{
+		host:   h,
+		PeerCh: make(chan peer.AddrInfo),
 	}
-	n.Peer = make(chan peer.AddrInfo)
 
 	ser := mdns.NewMdnsService(h, rendezvous, n)
 	if err := ser.Start(); err != nil {
@@ -70,19 +69,19 @@ func newMDNS(h host.Host, rendezvous string) (*discoveryNotifee, error) {
 	return n, nil
 }
 
-func discoverHandler(stream network.Stream) {
+func mdnsHandler(stream network.Stream) {
 	packetSize := make([]byte, 4)
 
 	for {
 		if _, err := stream.Read(packetSize); err != nil {
-			fmt.Printf("Error reading length from stream: %v\n", err)
+			fmt.Printf("MDNS Error reading length from stream: %v\n", err)
 			stream.Close()
 			return
 		}
 
 		address := make([]byte, binary.BigEndian.Uint32(packetSize))
 		if _, err := stream.Read(address); err != nil {
-			fmt.Printf("Error reading message from stream: %v\n", err)
+			fmt.Printf("MDNS Error reading message from stream: %v\n", err)
 			stream.Close()
 			return
 		}
@@ -93,6 +92,6 @@ func discoverHandler(stream network.Stream) {
 		}
 
 		peerTable[ip.String()] = stream.Conn().RemotePeer()
-		fmt.Printf("An address is now joined to vpn-mesh: %s\n", address)
+		fmt.Printf("An address is now joined to vpn-mesh by MDNS: %s\n", address)
 	}
 }

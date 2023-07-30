@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	MeshProtocol     Protocol = "/mesh/0.0.1"
-	DiscoverProtocol Protocol = "/mesh/discover/0.0.1"
+	MeshProtocol Protocol = "/mesh/0.0.1"
+	MDNSProtocol Protocol = "/mesh/mdns/0.0.1"
+	DHTProtocol  Protocol = "/mesh/dht/0.0.1"
 )
 
 type Protocol string

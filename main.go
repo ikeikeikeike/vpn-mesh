@@ -12,36 +12,43 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
+
 	args, err := parseArgs()
 	if err != nil {
 		panic(err)
 	}
-
 	h, err := newP2P(port1)
 	if err != nil {
 		panic(err)
 	}
 	defer h.Close()
-
 	i, err := newif(name1, type1)
 	if err != nil {
 		panic(err)
 	}
 	defer i.Close()
-
-	mdns, err := newMDNS(h, args.Token)
+	dMDNS, err := newMDNS(h, args.Token)
 	if err != nil {
 		panic(err)
 	}
+	// dDHT, err := newDHT(ctx, h, args.Token)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	err = applyif(name1, args.Network, MTU)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Peer: %s\n", h.ID())
 	fmt.Printf("VPN Address: %s\n\n", args.Network)
 
-	ctx := context.Background()
-	go mdns.run(ctx, args.Network)
+	go dMDNS.run(ctx, args.Network)
+	// go dDHT.run(ctx, args.Network)
 
 	h.SetStreamHandler(MeshProtocol.ID(), meshHandler(i))
-	h.SetStreamHandler(DiscoverProtocol.ID(), discoverHandler)
-
-	applyif(name1, args.Network, MTU)
+	h.SetStreamHandler(MDNSProtocol.ID(), mdnsHandler)
+	h.SetStreamHandler(DHTProtocol.ID(), dhtHandler)
 
 	meshBridge(ctx, h, i)
 }

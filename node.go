@@ -7,8 +7,8 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
-
-	"github.com/multiformats/go-multiaddr"
+	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	tcp "github.com/libp2p/go-libp2p/p2p/transport/tcp"
 )
 
 func newP2P(port int) (host.Host, error) {
@@ -16,16 +16,23 @@ func newP2P(port int) (host.Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	maddrs, err := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
-	if err != nil {
-		return nil, err
-	}
+	addrs := libp2p.ListenAddrStrings(
+		fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port),
+		fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", port),
+		fmt.Sprintf("/ip6/::/tcp/%d", port),
+		fmt.Sprintf("/ip6/::/udp/%d/quic", port),
+	)
 
 	return libp2p.New(
-		libp2p.ListenAddrs(maddrs),
+		addrs,
 		libp2p.Identity(prvKey),
 		// libp2p.EnableAutoRelay(),
-		libp2p.NATPortMap(),
 		libp2p.EnableNATService(),
+		libp2p.DefaultSecurity,
+		libp2p.NATPortMap(),
+		libp2p.DefaultMuxers,
+		libp2p.Transport(libp2pquic.NewTransport),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.FallbackDefaults,
 	)
 }
