@@ -12,10 +12,11 @@ import (
 )
 
 func newP2P(port int) (host.Host, error) {
-	prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)
+	pkey, err := privKey()
 	if err != nil {
 		return nil, err
 	}
+
 	addrs := libp2p.ListenAddrStrings(
 		fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port),
 		fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic", port),
@@ -23,9 +24,10 @@ func newP2P(port int) (host.Host, error) {
 		fmt.Sprintf("/ip6/::/udp/%d/quic", port),
 	)
 
+	// Default Behavior: https://pkg.go.dev/github.com/libp2p/go-libp2p#New
 	return libp2p.New(
 		addrs,
-		libp2p.Identity(prvKey),
+		libp2p.Identity(pkey),
 		// libp2p.EnableAutoRelay(),
 		libp2p.EnableNATService(),
 		libp2p.DefaultSecurity,
@@ -35,4 +37,33 @@ func newP2P(port int) (host.Host, error) {
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.FallbackDefaults,
 	)
+}
+
+func privKey() (crypto.PrivKey, error) {
+	// name := ".pkey"
+
+	// Restore pkey
+	// if _, err := os.Stat(name); !os.IsNotExist(err) {
+	// 	dat, err := ioutil.ReadFile(name)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	//
+	// 	return crypto.UnmarshalPrivateKey(dat)
+	// }
+
+	pkey, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	// Store Key
+	// privBytes, err := crypto.MarshalPrivateKey(pkey)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if err := ioutil.WriteFile(name, privBytes, 0644); err != nil {
+	// 	return nil, err
+	// }
+
+	return pkey, nil
 }

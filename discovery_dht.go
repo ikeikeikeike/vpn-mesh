@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"encoding/binary"
 	"fmt"
-	"net"
 	"sync"
+	"time"
 
+	"github.com/ipfs/go-cid"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -15,47 +14,49 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/multiformats/go-multiaddr"
+
+	mh "github.com/multiformats/go-multihash"
 )
 
 type discoveryDHT struct {
-	PeerCh <-chan peer.AddrInfo
-	host   host.Host
+	host       host.Host
+	dht        *dht.IpfsDHT
+	rendezvous string
 }
 
-func (n *discoveryDHT) run(ctx context.Context, address string) {
-	packetSize := make([]byte, 4)
-	binary.BigEndian.PutUint32(packetSize, uint32(len(address)))
+func (n *discoveryDHT) run(address string) {
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
 
-	for p := range n.PeerCh {
-		if p.ID == n.host.ID() || len(p.Addrs) == 0 {
+	for range ticker.C {
+		ctx := context.Background()
+
+		rd := routing.NewRoutingDiscovery(n.dht)
+		util.Advertise(ctx, rd, n.rendezvous)
+
+		peerCh, err := rd.FindPeers(ctx, n.rendezvous)
+		if err != nil {
+			fmt.Println("DHT FindPeers failed:", err)
 			continue
 		}
 
-		switch n.host.Network().Connectedness(p.ID) {
-		case network.NotConnected:
-			if err := n.host.Connect(ctx, p); err != nil {
-				fmt.Println("DHT Connection failed:", p.ID, ">>", err)
+		for p := range peerCh {
+			if p.ID == n.host.ID() || len(p.Addrs) == 0 {
 				continue
 			}
-		case network.Connected:
-			stream, err := n.host.NewStream(ctx, p.ID, DHTProtocol.ID())
-			if err != nil {
-				fmt.Println("DHT Stream open failed:", p.ID, ">>", err)
-				continue
-			}
-			writer := bufio.NewWriter(stream)
 
-			if _, err := writer.Write(packetSize); err != nil {
-				fmt.Printf("DHT Error sending message length: %v\n", err)
-				continue
-			}
-			if _, err := writer.WriteString(address); err != nil {
-				fmt.Printf("DHT Error sending message: %v\n", err)
-				continue
-			}
-			if err := writer.Flush(); err != nil {
-				fmt.Printf("DHT Error flushing writer: %v\n", err)
-				continue
+			switch n.host.Network().Connectedness(p.ID) {
+			case network.NotConnected:
+				if err := n.host.Connect(ctx, p); err != nil {
+					// fmt.Println("DHT Connection failed:", p.ID, ">>", err)
+					continue
+				}
+				fmt.Printf("An address is now joined to vpn-mesh by DHT: %s\n", p.ID)
+			default:
+				if err := discoveryWriter(ctx, n.host, address, p); err != nil {
+					// fmt.Println("DHT writer failed:", p.ID, ">>", err)
+					continue
+				}
 			}
 		}
 	}
@@ -64,9 +65,6 @@ func (n *discoveryDHT) run(ctx context.Context, address string) {
 func newDHT(ctx context.Context, h host.Host, rendezvous string) (*discoveryDHT, error) {
 	kadDHT, err := dht.New(ctx, h)
 	if err != nil {
-		return nil, err
-	}
-	if err = kadDHT.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
 	maddr, err := multiaddr.NewMultiaddr(
@@ -90,44 +88,21 @@ func newDHT(ctx context.Context, h host.Host, rendezvous string) (*discoveryDHT,
 	}
 	wg.Wait()
 
-	rd := routing.NewRoutingDiscovery(kadDHT)
-	util.Advertise(ctx, rd, rendezvous)
-
-	peerCh, err := rd.FindPeers(ctx, rendezvous)
+	if err = kadDHT.Bootstrap(ctx); err != nil {
+		return nil, err
+	}
+	cid, err := cid.NewPrefixV1(cid.Raw, mh.IDENTITY).Sum([]byte(rendezvous))
 	if err != nil {
+		return nil, err
+	}
+	if err := kadDHT.Provide(ctx, cid, true); err != nil {
 		return nil, err
 	}
 
 	ddht := &discoveryDHT{
-		PeerCh: peerCh,
-		host:   h,
+		host:       h,
+		dht:        kadDHT,
+		rendezvous: rendezvous,
 	}
 	return ddht, nil
-}
-
-func dhtHandler(stream network.Stream) {
-	packetSize := make([]byte, 4)
-
-	for {
-		if _, err := stream.Read(packetSize); err != nil {
-			fmt.Printf("DHT Error reading length from stream: %v\n", err)
-			stream.Close()
-			return
-		}
-
-		address := make([]byte, binary.BigEndian.Uint32(packetSize))
-		if _, err := stream.Read(address); err != nil {
-			fmt.Printf("DHT Error reading message from stream: %v\n", err)
-			stream.Close()
-			return
-		}
-		ip, _, err := net.ParseCIDR(string(address))
-		if err != nil {
-			stream.Close()
-			return
-		}
-
-		peerTable[ip.String()] = stream.Conn().RemotePeer()
-		fmt.Printf("An address is now joined to vpn-mesh by DHT: %s\n", address)
-	}
 }

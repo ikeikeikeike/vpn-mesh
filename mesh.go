@@ -75,7 +75,7 @@ func meshBridge(ctx context.Context, h host.Host, i *water.Interface) {
 			delete(activeStreams, dst)
 		}
 
-		if peer, ok := peerTable[dst]; ok {
+		if peer, ok := PeerTable[dst]; ok {
 			stream, err = h.NewStream(ctx, peer, MeshProtocol.ID())
 			if err != nil {
 				continue

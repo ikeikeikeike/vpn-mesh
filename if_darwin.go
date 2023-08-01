@@ -11,16 +11,16 @@ import (
 	"github.com/songgao/water"
 )
 
-func newif(name string, dtype water.DeviceType) (*water.Interface, error) {
+func newif(name string) (*water.Interface, error) {
 	config := water.Config{
-		DeviceType: dtype,
+		DeviceType: water.TUN,
 	}
 	config.Name = name
 
 	return water.New(config)
 }
 
-func applyif(name, address string, mtu int) error {
+func applyif(name, address string) error {
 	ip, _, err := net.ParseCIDR(address)
 	if err != nil {
 		return err
