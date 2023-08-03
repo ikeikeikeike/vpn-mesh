@@ -19,7 +19,7 @@ func parseArgs() (*args, error) {
 	flag.StringVar(&a.Rendezvous, "rv", "", "Rendezvous string like the only master key")
 	flag.StringVar(&a.Network, "net", "", "vpn-mesh host e.g. 10.1.1.1/24, 10.1.1.2/24")
 	flag.StringVar(&a.Interface, "ifce", "utun5", "vpn-mesh VPN(TUN) interface name")
-	flag.IntVar(&a.Port, "port", 6868, "vpn-mesh port\n")
+	flag.IntVar(&a.Port, "port", 6868, "vpn-mesh port")
 
 	flag.Parse()
 
