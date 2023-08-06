@@ -13,24 +13,22 @@ import (
 )
 
 func discoveryHandler(stream network.Stream) {
-	packetSize := make([]byte, 4)
+	defer stream.Close()
 
+	packetSize := make([]byte, 4)
 	for {
 		if _, err := stream.Read(packetSize); err != nil {
 			fmt.Printf("Error reading length from stream: %v\n", err)
-			stream.Close()
 			return
 		}
 
 		address := make([]byte, binary.BigEndian.Uint32(packetSize))
 		if _, err := stream.Read(address); err != nil {
 			fmt.Printf("Error reading message from stream: %v\n", err)
-			stream.Close()
 			return
 		}
 		ip, _, err := net.ParseCIDR(string(address))
 		if err != nil {
-			stream.Close()
 			return
 		}
 
@@ -43,6 +41,8 @@ func discoveryWriter(ctx context.Context, h host.Host, address string, p peer.Ad
 	if err != nil {
 		return fmt.Errorf("Stream open failed %s: %w", p.ID, err)
 	}
+	defer stream.Close()
+
 	packetSize := make([]byte, 4)
 	binary.BigEndian.PutUint32(packetSize, uint32(len(address)))
 

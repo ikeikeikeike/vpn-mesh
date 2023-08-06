@@ -22,13 +22,13 @@ func meshHandler(i *water.Interface) func(stream network.Stream) {
 		// 	stream.Reset()
 		// 	return
 		// }
+		defer stream.Close()
 
 		var packet = make([]byte, MTU)
 		var packetSize = make([]byte, 2)
 		for {
 			_, err := stream.Read(packetSize)
 			if err != nil {
-				stream.Close()
 				return
 			}
 
@@ -39,7 +39,6 @@ func meshHandler(i *water.Interface) func(stream network.Stream) {
 				tmp, err := stream.Read(packet[plen:size])
 				plen += uint16(tmp)
 				if err != nil {
-					stream.Close()
 					return
 				}
 			}
