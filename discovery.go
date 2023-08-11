@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/libp2p/go-libp2p/core/host"
@@ -18,13 +19,13 @@ func discoveryHandler(stream network.Stream) {
 	packetSize := make([]byte, 4)
 	for {
 		if _, err := stream.Read(packetSize); err != nil {
-			fmt.Printf("Error reading length from stream: %v\n", err)
+			log.Printf("Error reading length from stream: %v\n", err)
 			return
 		}
 
 		address := make([]byte, binary.BigEndian.Uint32(packetSize))
 		if _, err := stream.Read(address); err != nil {
-			fmt.Printf("Error reading message from stream: %v\n", err)
+			log.Printf("Error reading message from stream: %v\n", err)
 			return
 		}
 		ip, _, err := net.ParseCIDR(string(address))

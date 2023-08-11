@@ -61,12 +61,9 @@ func meshBridge(ctx context.Context, h host.Host, i *water.Interface) {
 
 		dst := net.IPv4(packet[16], packet[17], packet[18], packet[19]).String() // TODO: use ethernet.Frame
 
-		stream, ok := activeStreams[dst]
-		if ok {
-			err = binary.Write(stream, binary.LittleEndian, uint16(plen))
-			if err == nil {
-				_, err = stream.Write(packet[:plen])
-				if err == nil {
+		if stream, ok := activeStreams[dst]; ok {
+			if err := binary.Write(stream, binary.LittleEndian, uint16(plen)); err == nil {
+				if _, err := stream.Write(packet[:plen]); err == nil {
 					continue
 				}
 			}
@@ -75,17 +72,15 @@ func meshBridge(ctx context.Context, h host.Host, i *water.Interface) {
 		}
 
 		if peer, ok := PeerTable[dst]; ok {
-			stream, err = h.NewStream(ctx, peer, MeshProtocol.ID())
+			stream, err := h.NewStream(ctx, peer, MeshProtocol.ID())
 			if err != nil {
 				continue
 			}
-			err = binary.Write(stream, binary.LittleEndian, uint16(plen))
-			if err != nil {
+			if err := binary.Write(stream, binary.LittleEndian, uint16(plen)); err != nil {
 				stream.Close()
 				continue
 			}
-			_, err = stream.Write(packet[:plen])
-			if err != nil {
+			if _, err := stream.Write(packet[:plen]); err != nil {
 				stream.Close()
 				continue
 			}
