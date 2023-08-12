@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ipfs/go-cid"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -14,8 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/multiformats/go-multiaddr"
-
-	mh "github.com/multiformats/go-multihash"
 )
 
 type discoveryDHT struct {
@@ -91,13 +88,13 @@ func newDHT(ctx context.Context, h host.Host, rendezvous string) (*discoveryDHT,
 	if err = kadDHT.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
-	cid, err := cid.NewPrefixV1(cid.Raw, mh.IDENTITY).Sum([]byte(rendezvous))
-	if err != nil {
-		return nil, err
-	}
-	if err := kadDHT.Provide(ctx, cid, true); err != nil {
-		return nil, err
-	}
+	// cid, err := cid.NewPrefixV1(cid.Raw, mh.IDENTITY).Sum([]byte(rendezvous))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if err := kadDHT.Provide(ctx, cid, true); err != nil {
+	// 	return nil, err
+	// }
 
 	ddht := &discoveryDHT{
 		host:       h,
